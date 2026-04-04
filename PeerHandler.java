@@ -58,8 +58,7 @@ public class PeerHandler implements Runnable {
             AuctionServer.accounts.put(username, new User(username, password));
             out.println("SUCCESS|Account created for " + username);
         } else {
-            // Επιστρέφει μήνυμα αποτυχίας αν το username χρησιμοποιείται [cite: 44]
-            out.println("ERROR|Username already exists. Please choose a different username.");
+           out.println("ERROR|Username already exists. Please choose a different username.");
         }
     }
 
