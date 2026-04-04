@@ -7,8 +7,8 @@ public class AuctionServer {
 
     static final int PORT = 5000;
 
-    static Map<String, String[]> accounts = new ConcurrentHashMap<>();
-    static Map<String, String[]> activeSessions = new ConcurrentHashMap<>();
+    static Map<String, User> accounts = new ConcurrentHashMap<>();
+    static Map<String, Session> activeSessions = new ConcurrentHashMap<>();
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(PORT);
