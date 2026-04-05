@@ -37,6 +37,15 @@ public class PeerHandler implements Runnable {
                     case "REQUEST_AUCTION":
                         requestAuction(pieces);
                         break;
+                    case "GET_CURRENT_AUCTION":
+                        getCurrentAuction(pieces);
+                        break;
+                    case "GET_AUCTION_DETAILS":
+                        getAuctionDetails(pieces);
+                        break;
+                    case "PLACE_BID":
+                        placeBid(pieces);
+                        break;
                     default:
                         out.println("Error command");
                 }           
@@ -112,9 +121,7 @@ public class PeerHandler implements Runnable {
             out.println("ERROR|Format is REQUEST_AUCTION|tokenId|objectId|description|startBid|duration");
             return;
         }
-
         String tokenId = pieces[1];
-
         if (!AuctionServer.activeSessions.containsKey(tokenId)) {
             out.println("ERROR|Invalid or expired Token ID.");
             return;
@@ -131,4 +138,80 @@ public class PeerHandler implements Runnable {
         out.println("SUCCESS|Item " + objectId + " added to the auction queue!");
         System.out.println("[SERVER] Queue size is now: " + AuctionServer.auctionQueue.size());
     }
+private void getCurrentAuction(String[] pieces) {
+        if (pieces.length != 2) {
+            out.println("ERROR|Format is GET_CURRENT_AUCTION|tokenId");
+            return;
+        }
+        String tokenId = pieces[1];
+        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
+            out.println("ERROR|Invalid Token ID");
+            return;
+        }
+        ActiveAuction auction = AuctionServer.currentAuction;
+        if (auction != null && !auction.isFinished) {
+            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.currentBid);
+        } else {
+            out.println("ERROR|No active auction right now");
+        }
+    }
+
+    private void getAuctionDetails(String[] pieces) {
+        
+        if (pieces.length != 2) {
+            out.println("ERROR|Format is GET_AUCTION_DETAILS|tokenId");
+            return;
+        }
+        String tokenId = pieces[1];
+        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
+            out.println("ERROR|Invalid Token ID");
+            return;
+        }
+        ActiveAuction auction = AuctionServer.currentAuction;
+        if (auction != null && !auction.isFinished) {
+            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.item.startBid + "|" + auction.currentBid);
+        } else {
+            out.println("ERROR|No active auction");
+        }
+    }
+
+    private void placeBid(String[] pieces) {
+        if (pieces.length != 3) {
+            out.println("ERROR|Format is PLACE_BID|tokenId|newBid");
+            return;
+        }
+        String tokenId = pieces[1];
+        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
+            out.println("ERROR|Invalid Token ID");
+            return;
+        }
+        int newBid;
+        try {
+            newBid = Integer.parseInt(pieces[2]);
+        } catch (NumberFormatException e) {
+            out.println("ERROR|Invalid bid amount");
+            return;
+        }
+        ActiveAuction auction = AuctionServer.currentAuction;
+        if (auction != null && !auction.isFinished) {
+           synchronized (auction) {
+                if (auction.item.tokenId.equals(tokenId)) {
+                    out.println("ERROR|You cannot bid on your own item!");
+                    return;
+                }
+                if (newBid > auction.currentBid) {
+                    auction.currentBid = newBid;
+                    auction.highestBidderTokenId = tokenId;
+                    auction.highestBidderUsername = AuctionServer.activeSessions.get(tokenId).username;
+                    out.println("SUCCESS|Bid accepted");
+                    System.out.println("[SERVER] New offer for " + auction.item.objectId + " from " + auction.highestBidderUsername + " with bid: " + newBid);
+                } else {
+                    out.println("ERROR|Bid too low. Current bid is " + auction.currentBid);
+                }
+            }
+        } else {
+            out.println("ERROR|No active auction to bid on");
+        }
+    }
 }
+
