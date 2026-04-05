@@ -13,6 +13,7 @@ public class Peer {
     static String myTokenId = null;
     static String myUsername = null;
     static Thread generatorThread = null;
+    static Thread bidderThread = null;
 
     public static void main(String[] args) throws IOException {
         myServerSocket = new ServerSocket(0);
@@ -92,17 +93,12 @@ public class Peer {
             System.out.println("[SERVER] " + status + (info.isEmpty() ? "" : ": " + info));
 
             if (choice.equals("2") && status.equals("SUCCESS")) {
-                myTokenId = info; // Αποθήκευση του token
-                myUsername = tempUsername; // Αποθήκευση του username
-
+                myTokenId = info; 
+                myUsername = tempUsername; 
                 System.out.println(">> Login successful! Token ID: " + myTokenId);
-                
                 Items generator = new Items(myUsername, myTokenId, out);
-               
                 generatorThread = new Thread(generator);
-               
                 generatorThread.start();
-
                 System.out.println(">> Item Generator started in background!");
             }
             if (choice.equals("3") && status.equals("SUCCESS")) {
@@ -113,6 +109,12 @@ public class Peer {
                     generatorThread = null;
                     System.out.println(">> Item Generator stopped.");
                 }
+                if (bidderThread != null) {
+                    bidderThread.interrupt();
+                    bidderThread = null;
+                    System.out.println(">> Bidder stopped.");
+                } 
+                
             }
         }
         serverSocket.close();
