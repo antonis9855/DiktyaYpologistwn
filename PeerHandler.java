@@ -34,6 +34,9 @@ public class PeerHandler implements Runnable {
                     case "LOGOUT":
                         logout (pieces);
                         break;
+                    case "REQUEST_AUCTION":
+                        requestAuction(pieces);
+                        break;
                     default:
                         out.println("Error command");
                 }           
@@ -103,5 +106,29 @@ public class PeerHandler implements Runnable {
         } else {
            out.println("ERROR|Invalid Token ID.");
         }
+    }
+    private void requestAuction(String[] pieces) {
+        if (pieces.length != 6) {
+            out.println("ERROR|Format is REQUEST_AUCTION|tokenId|objectId|description|startBid|duration");
+            return;
+        }
+
+        String tokenId = pieces[1];
+
+        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
+            out.println("ERROR|Invalid or expired Token ID.");
+            return;
+        }
+
+        String objectId = pieces[2];
+        String description = pieces[3];
+        int startBid = Integer.parseInt(pieces[4]);
+        int duration = Integer.parseInt(pieces[5]);
+
+        AuctionItem newItem = new AuctionItem(tokenId, objectId, description, startBid, duration);
+        AuctionServer.auctionQueue.add(newItem);
+
+        out.println("SUCCESS|Item " + objectId + " added to the auction queue!");
+        System.out.println("[SERVER] Queue size is now: " + AuctionServer.auctionQueue.size());
     }
 }
