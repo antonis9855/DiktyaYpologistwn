@@ -3,12 +3,16 @@ import java.util.Random;
 
 public class Items implements Runnable {
     private String username;
+    private String tokenId;
+    private PrintWriter out;
     private File sharedDir;
     private int objectCounter = 1;
     private Random random;
 
-    public Items (String username){
+    public Items (String username, String tokenId, PrintWriter out){
         this.username = username;
+        this.tokenId = tokenId;
+        this.out = out;
         this.random = new Random();
         this.sharedDir = new File("shared_directory_" + username);
         if (!this.sharedDir.exists()) {
@@ -51,7 +55,8 @@ public class Items implements Runnable {
             writer.println(content);
             System.out.println("\n[" + username + "New file: " + fileName + " in file " + sharedDir.getName());
             objectCounter++;
-
+            String requestMsg = "REQUEST_AUCTION|" + tokenId + "|" + objectId + "|a description for " + objectId + "|" + startBid + "|" + auctionDuration;
+            out.println(requestMsg);
         } catch (IOException e) {
             System.out.println("Failed to create file: " + e.getMessage());
         }
