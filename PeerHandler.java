@@ -46,6 +46,9 @@ public class PeerHandler implements Runnable {
                     case "PLACE_BID":
                         placeBid(pieces);
                         break;
+                    case "CHECK_WINNER":
+                        checkWinner(pieces);
+                        break;
                     default:
                         out.println("Error command");
                 }           
@@ -213,5 +216,39 @@ private void getCurrentAuction(String[] pieces) {
             out.println("ERROR|No active auction to bid on");
         }
     }
-}
+   private void checkWinner(String[] pieces) {
+        // Μορφή: CHECK_WINNER|tokenId
+        if (pieces.length != 2) return;
+        String tokenId = pieces[1];
 
+        ActiveAuction wonAuction = null;
+
+        // Ψάχνουμε στη λίστα αν υπάρχει δημοπρασία που κέρδισε αυτό το tokenId
+        synchronized(AuctionServer.completedAuctions) {
+            for (ActiveAuction a : AuctionServer.completedAuctions) {
+                if (tokenId.equals(a.highestBidderTokenId)) {
+                    wonAuction = a;
+                    break;
+                }
+            }
+            // Αν βρήκαμε ότι κέρδισε, το βγάζουμε από τη λίστα για να μην τον ξαναειδοποιήσουμε
+            if (wonAuction != null) {
+                AuctionServer.completedAuctions.remove(wonAuction);
+            }
+        }
+
+        if (wonAuction != null) {
+            String sellerToken = wonAuction.item.tokenId;
+            Session sellerSession = AuctionServer.activeSessions.get(sellerToken);
+
+            if (sellerSession != null) {
+                // Του στέλνουμε το SUCCESS μαζί με το Όνομα Αρχείου, την IP και το Port του Πωλητή
+                out.println("SUCCESS|" + wonAuction.item.objectId + "|" + sellerSession.ipAddress + "|" + sellerSession.port);
+            } else {
+                out.println("ERROR|Saler is offline.");
+            }
+        } else {
+            out.println("ERROR|You haven't won any auction.");
+        }
+    }
+}
