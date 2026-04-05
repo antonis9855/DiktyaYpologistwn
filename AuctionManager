@@ -1,0 +1,61 @@
+public class AuctionManager implements Runnable {
+
+    @Override
+    public void run() {
+        System.out.println("[AUCTION MANAGER] Waiting for objects...");
+
+        while (true) {
+            try {
+                AuctionItem nextItem = AuctionServer.auctionQueue.poll();
+
+                if (nextItem != null) {
+                    if (!AuctionServer.activeSessions.containsKey(nextItem.tokenId)) {
+                        System.out.println("[AUCTION MANAGER] Seller disconnected. Auction stopped for " + nextItem.objectId);
+                        continue; 
+                    }
+
+                    AuctionServer.currentAuction = new ActiveAuction(nextItem);
+                    System.out.println("\n===============================================");
+                    System.out.println("Auction for: " + nextItem.objectId + "started ");
+                    System.out.println("Starting price: " + nextItem.startBid + " | Duration: " + nextItem.auctionDuration + "s");
+                    System.out.println("===============================================");
+
+                    int timeRemaining = nextItem.auctionDuration;
+                    while (timeRemaining > 0) {
+                        Thread.sleep(1000); 
+                        timeRemaining--;
+                    }
+
+                    AuctionServer.currentAuction.isFinished = true;
+
+                    if (AuctionServer.currentAuction.highestBidderUsername != null) {
+                        System.out.println("Object : " + nextItem.objectId + " sold to  " + AuctionServer.currentAuction.highestBidderUsername + " for " + AuctionServer.currentAuction.currentBid + "!");
+                        
+                        Session sellerSession = AuctionServer.activeSessions.get(nextItem.tokenId);
+                        if (sellerSession != null) {
+                            User seller = AuctionServer.accounts.get(sellerSession.username);
+                            if (seller != null) seller.num_auctions_seller++;
+                        }
+
+                        User buyer = AuctionServer.accounts.get(AuctionServer.currentAuction.highestBidderUsername);
+                        if (buyer != null) buyer.num_auctions_bidder++;
+
+                    } else {
+                        System.out.println("Auction for : " + nextItem.objectId + " stopped with no bids.");
+                    }
+
+                    System.out.println("===============================================\n");
+
+                    AuctionServer.currentAuction = null;
+
+                } else {
+                    Thread.sleep(2000);
+                }
+
+            } catch (InterruptedException e) {
+                System.out.println("[AUCTION MANAGER] Stopped.");
+                break;
+            }
+        }
+    }
+}
