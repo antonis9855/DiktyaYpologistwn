@@ -11,6 +11,7 @@ public class AuctionServer {
     static Map<String, Session> activeSessions = new ConcurrentHashMap<>();
     static Queue<AuctionItem> auctionQueue = new ConcurrentLinkedQueue<>();
     static ActiveAuction currentAuction = null;
+    static List<ActiveAuction> completedAuctions = Collections.synchronizedList(new ArrayList<>());
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(PORT);
