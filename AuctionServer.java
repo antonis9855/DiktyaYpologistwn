@@ -10,10 +10,13 @@ public class AuctionServer {
     static Map<String, User> accounts = new ConcurrentHashMap<>();
     static Map<String, Session> activeSessions = new ConcurrentHashMap<>();
     static Queue<AuctionItem> auctionQueue = new ConcurrentLinkedQueue<>();
+    static ActiveAuction currentAuction = null;
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(PORT);
         System.out.println("Auction Server listening on port " + PORT);
+        Thread auctionManagerThread = new Thread(new AuctionManager());
+        auctionManagerThread.start();
 
         while (true) {
             Socket clientSocket = serverSocket.accept();
