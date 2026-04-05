@@ -97,7 +97,7 @@ public class Peer {
 
                 System.out.println(">> Login successful! Token ID: " + myTokenId);
                 
-                Items generator = new Items(myUsername);
+                Items generator = new Items(myUsername, myTokenId, out);
                
                 generatorThread = new Thread(generator);
                
