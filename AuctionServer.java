@@ -9,6 +9,7 @@ public class AuctionServer {
 
     static Map<String, User> accounts = new ConcurrentHashMap<>();
     static Map<String, Session> activeSessions = new ConcurrentHashMap<>();
+    static Queue<AuctionItem> auctionQueue = new ConcurrentLinkedQueue<>();
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(PORT);
