@@ -48,8 +48,6 @@ public class Bidder implements Runnable {
                             downloadFileFromSeller(sellerIp, sellerPort, wonObjectId);
                             out.println("TRANSACTION_COMPLETE|" + tokenId + "|" + wonObjectId);
                         }
-                        // ------------------------------------------
-
                         if (random.nextDouble() <= 0.60) {
                             double randValue = random.nextDouble();
                             int newBid = (int) (highestBid * (1.0 + (randValue / 10.0)));
@@ -64,7 +62,6 @@ public class Bidder implements Runnable {
                             System.out.println("\n[" + username + "-Buyer] I saw : " + currentObjectId + " But not interested.");
                         }
                     }
-
                 } catch (IOException e) {
                 }
             }
@@ -88,7 +85,7 @@ public class Bidder implements Runnable {
             System.out.println("[" + username + "-Buyer] Downloading file " + objectId + ".txt...");
             String line;
             while ((line = p2pIn.readLine()) != null) {
-                if (line.equals("EOF")) break; // Το EOF (End Of File) σημαίνει ότι τελείωσε
+                if (line.equals("EOF")) break;
                 fileWriter.write(line + "\n");
             }
             System.out.println("[" + username + "-Buyer] Saving file completed!");
