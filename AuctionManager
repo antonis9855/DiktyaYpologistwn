@@ -30,8 +30,9 @@ public class AuctionManager implements Runnable {
 
                     if (AuctionServer.currentAuction.highestBidderUsername != null) {
                         System.out.println("Object : " + nextItem.objectId + " sold to  " + AuctionServer.currentAuction.highestBidderUsername + " for " + AuctionServer.currentAuction.currentBid + "!");
-                        
+                        AuctionServer.completedAuctions.add(AuctionServer.currentAuction);
                         Session sellerSession = AuctionServer.activeSessions.get(nextItem.tokenId);
+
                         if (sellerSession != null) {
                             User seller = AuctionServer.accounts.get(sellerSession.username);
                             if (seller != null) seller.num_auctions_seller++;
