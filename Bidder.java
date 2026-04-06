@@ -54,7 +54,7 @@ public class Bidder implements Runnable {
                             if (newBid <= highestBid) {
                                 newBid = highestBid + 1;
                             }
-                            System.out.println("\n[" + username + "-Buyer] I want : " + currentObjectId + "and i bid: " + newBid);
+                            System.out.println("\n[" + username + "-Buyer] I want : " + currentObjectId + " and i bid: " + newBid);
                             out.println("PLACE_BID|" + tokenId + "|" + newBid);
                             String bidResponse = in.readLine();
                             System.out.println("[" + username + "-Buyer] Server responded " + bidResponse);
