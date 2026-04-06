@@ -210,7 +210,7 @@ private void getCurrentAuction(String[] pieces) {
                     auction.highestBidderTokenId = tokenId;
                     auction.highestBidderUsername = AuctionServer.activeSessions.get(tokenId).username;
                     out.println("SUCCESS|Bid accepted");
-                    System.out.println("[SERVER] New offer for " + auction.item.objectId + " from " + auction.highestBidderUsername + " with bid: " + newBid);
+                    System.out.println("[SERVER] New offer for " + auction.item.objectId + " from:  " + auction.highestBidderUsername + " with bid: " + newBid);
                 } else {
                     out.println("ERROR|Bid too low. Current bid is " + auction.currentBid);
                 }
