@@ -49,6 +49,9 @@ public class PeerHandler implements Runnable {
                     case "CHECK_WINNER":
                         checkWinner(pieces);
                         break;
+                    case "TRANSACTION_COMPLETE":
+                        transactionComplete(pieces);
+                        break;
                     default:
                         out.println("Error command");
                 }           
@@ -247,5 +250,27 @@ private void getCurrentAuction(String[] pieces) {
         } else {
             out.println("ERROR|You haven't won any auction.");
         }
+    }
+    private void transactionComplete(String[] pieces) {
+        if (pieces.length != 3) {
+            out.println("ERROR|Format is TRANSACTION_COMPLETE|tokenId|objectId");
+            return;
+        }
+        String tokenId = pieces[1];
+        String objectId = pieces[2];
+
+        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
+            out.println("ERROR|Invalid Token ID");
+            return;
+        }
+        String buyerUsername = AuctionServer.activeSessions.get(tokenId).username;
+
+        System.out.println("\n===============================================");
+        System.out.println("[Confirm P2P transaction]");
+        System.out.println("Byuer : " + buyerUsername + "received file: ");
+        System.out.println(objectId + " from saler!");
+        System.out.println("===============================================\n");
+
+        out.println("SUCCESS|Transaction successfully recorded");
     }
 }
