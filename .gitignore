@@ -1,0 +1,3 @@
+*.class
+shared_directory_*/
+sim_*.log
