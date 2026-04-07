@@ -10,15 +10,12 @@ public class PeerListener implements Runnable {
     }
 
     public void run() {
-        System.out.println("PeerListener waiting for incoming connections on port " + serverSocket.getLocalPort());
+        System.out.println("[PEER] Listening on port " + serverSocket.getLocalPort());
         while (true) {
             try {
                 Socket incoming = serverSocket.accept();
-                System.out.println("[PEER] Incoming connection from: " + incoming.getInetAddress());
-                Thread t = new Thread(new IncomingHandler(incoming));
-                t.start();
+                new Thread(new IncomingHandler(incoming)).start();
             } catch (IOException e) {
-                System.out.println("[PEER] Listener error: " + e.getMessage());
                 break;
             }
         }
