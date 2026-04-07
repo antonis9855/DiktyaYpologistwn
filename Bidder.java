@@ -7,90 +7,78 @@ public class Bidder implements Runnable {
     private String tokenId;
     private String serverIp;
     private int serverPort;
-    private Random random;
+    private boolean simMode;
+    private Random random = new Random();
 
-    public Bidder(String username, String tokenId, String serverIp, int serverPort) {
+    public Bidder(String username, String tokenId, String serverIp, int serverPort, boolean simMode) {
         this.username = username;
         this.tokenId = tokenId;
         this.serverIp = serverIp;
         this.serverPort = serverPort;
-        this.random = new Random();
-
+        this.simMode = simMode;
     }
 
-    @Override
     public void run() {
         try {
             while (true) {
-                Thread.sleep(10000);
-
+                Thread.sleep(simMode ? 3000 : 10000);
                 try (Socket socket = new Socket(serverIp, serverPort);
                      PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                      BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
+                    out.println("CHECK_WINNER|" + tokenId);
+                    String winnerResponse = in.readLine();
+                    if (winnerResponse != null && winnerResponse.startsWith("SUCCESS")) {
+                        String[] winParts = winnerResponse.split("\\|");
+                        String wonObjectId = winParts[1];
+                        String sellerIp = winParts[2];
+                        int sellerPort = Integer.parseInt(winParts[3]);
+                        System.out.println("[" + username + "] Won: " + wonObjectId + "! Connecting to seller...");
+                        downloadFile(sellerIp, sellerPort, wonObjectId);
+                        out.println("TRANSACTION_COMPLETE|" + tokenId + "|" + wonObjectId);
+                        in.readLine();
+                    }
+
                     out.println("GET_CURRENT_AUCTION|" + tokenId);
                     String response = in.readLine();
-
                     if (response != null && response.startsWith("SUCCESS")) {
                         String[] parts = response.split("\\|");
-                        String currentObjectId = parts[1];
-                        int highestBid = Integer.parseInt(parts[2]);
-                        out.println("CHECK_WINNER|" + tokenId);
-                        String winnerResponse = in.readLine();
-
-                        if (winnerResponse != null && winnerResponse.startsWith("SUCCESS")) {
-                            String[] winParts = winnerResponse.split("\\|");
-                            String wonObjectId = winParts[1];
-                            String sellerIp = winParts[2];
-                            int sellerPort = Integer.parseInt(winParts[3]);
-
-                            System.out.println("\n [" + username + "-Buyer] Congrats! You won :  " + wonObjectId + "!");
-                            downloadFileFromSeller(sellerIp, sellerPort, wonObjectId);
-                            out.println("TRANSACTION_COMPLETE|" + tokenId + "|" + wonObjectId);
-                        }
+                        String objectId = parts[1];
+                        int highestBid = Integer.parseInt(parts[3]);
                         if (random.nextDouble() <= 0.60) {
-                            double randValue = random.nextDouble();
-                            int newBid = (int) (highestBid * (1.0 + (randValue / 10.0)));
-                            if (newBid <= highestBid) {
-                                newBid = highestBid + 1;
-                            }
-                            System.out.println("\n[" + username + "-Buyer] I want : " + currentObjectId + " and i bid: " + newBid);
+                            int newBid = (int)(highestBid * (1.0 + random.nextDouble() / 10.0));
+                            if (newBid <= highestBid) newBid = highestBid + 1;
+                            System.out.println("[" + username + "] Bidding on " + objectId + ": " + newBid);
                             out.println("PLACE_BID|" + tokenId + "|" + newBid);
-                            String bidResponse = in.readLine();
-                            System.out.println("[" + username + "-Buyer] Server responded " + bidResponse);
+                            System.out.println("[" + username + "] " + in.readLine());
                         } else {
-                            System.out.println("\n[" + username + "-Buyer] I saw : " + currentObjectId + " But not interested.");
+                            System.out.println("[" + username + "] Not interested in " + objectId);
                         }
                     }
-                } catch (IOException e) {
-                }
+                } catch (IOException e) {}
             }
-
         } catch (InterruptedException e) {
-            System.out.println(">> Bidder thread stopped.");
+            System.out.println("[" + username + "] Bidder stopped.");
         }
     }
-    private void downloadFileFromSeller(String ip, int port, String objectId) {
+
+    private void downloadFile(String sellerIp, int sellerPort, String objectId) {
         File buyerDir = new File("shared_directory_" + username);
-        if (!buyerDir.exists()) buyerDir.mkdir();
-
-        File newFile = new File(buyerDir, objectId + ".txt");
-
-        try (Socket p2pSocket = new Socket(ip, port);
-             PrintWriter p2pOut = new PrintWriter(p2pSocket.getOutputStream(), true);
-             BufferedReader p2pIn = new BufferedReader(new InputStreamReader(p2pSocket.getInputStream()));
-             FileWriter fileWriter = new FileWriter(newFile)) {
-
-            p2pOut.println("DOWNLOAD|" + objectId);
-            System.out.println("[" + username + "-Buyer] Downloading file " + objectId + ".txt...");
+        buyerDir.mkdir();
+        File outputFile = new File(buyerDir, objectId + ".txt");
+        try (Socket socket = new Socket(sellerIp, sellerPort);
+             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             FileWriter fileWriter = new FileWriter(outputFile)) {
+            writer.println("DOWNLOAD|" + objectId);
             String line;
-            while ((line = p2pIn.readLine()) != null) {
+            while ((line = reader.readLine()) != null) {
                 if (line.equals("EOF")) break;
                 fileWriter.write(line + "\n");
             }
-            System.out.println("[" + username + "-Buyer] Saving file completed!");
+            System.out.println("[" + username + "] Downloaded " + objectId + " to shared_directory.");
         } catch (IOException e) {
-            System.out.println("[" + username + "-Buyer] Failed to connect P2P: " + e.getMessage());
+            System.out.println("[" + username + "] P2P download failed: " + e.getMessage());
         }
     }
 }
