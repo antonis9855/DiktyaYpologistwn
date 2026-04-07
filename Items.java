@@ -1,64 +1,63 @@
 import java.io.*;
+import java.net.*;
 import java.util.Random;
 
 public class Items implements Runnable {
     private String username;
     private String tokenId;
-    private PrintWriter out;
+    private String serverHost;
+    private int serverPort;
+    private boolean simMode;
     private File sharedDir;
     private int objectCounter = 1;
-    private Random random;
+    private Random random = new Random();
 
-    public Items (String username, String tokenId, PrintWriter out){
+    public Items(String username, String tokenId, String serverHost, int serverPort, boolean simMode) {
         this.username = username;
         this.tokenId = tokenId;
-        this.out = out;
-        this.random = new Random();
+        this.serverHost = serverHost;
+        this.serverPort = serverPort;
+        this.simMode = simMode;
         this.sharedDir = new File("shared_directory_" + username);
-        if (!this.sharedDir.exists()) {
-            this.sharedDir.mkdir();
-        }
+        this.sharedDir.mkdir();
     }
-    @Override
+
     public void run() {
         try {
             while (true) {
-                double randValue = random.nextDouble();
-                double waitTimeSeconds = randValue * 120;
-                long waitTimeMillis = (long) (waitTimeSeconds * 1000);
-
-                System.out.println("\n[" + username + "Next item in " + (int) waitTimeSeconds + " seconds..");
-
-                Thread.sleep(waitTimeMillis);
-
-                generateObjectFile();
+                int waitSeconds = (int)(random.nextDouble() * (simMode ? 15 : 120));
+                System.out.println("[" + username + "] Next item in " + waitSeconds + "s");
+                Thread.sleep(waitSeconds * 1000L);
+                generateItem();
             }
         } catch (InterruptedException e) {
-                    System.out.println(" ");
-                }
+            System.out.println("[" + username + "] Generator stopped.");
+        }
+    }
+
+    private void generateItem() {
+        String objectId = "Object_" + String.format("%02d", objectCounter);
+        int startBid = 10 + random.nextInt(91);
+        int duration = simMode ? 10 + random.nextInt(11) : 30 + random.nextInt(91);
+        String content = "[object_id: " + objectId + "; description: \"item by " + username + "\"; start_bid: \"" + startBid + "\"; auction_duration: \"" + duration + "\"]";
+
+        File file = new File(sharedDir, objectId + ".txt");
+        try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+            writer.println(content);
+            System.out.println("[" + username + "] Created " + objectId + " bid=" + startBid + " dur=" + duration + "s");
+            objectCounter++;
+        } catch (IOException e) {
+            System.out.println("[" + username + "] Failed to create file.");
+            return;
         }
 
-    private void generateObjectFile() {
-        String objectId = "Object_" + String.format("%02d", objectCounter);
-        String fileName = objectId + ".txt";
-        File objectFile = new File(sharedDir, fileName);
-
-        int startBid = 10 + random.nextInt(91);
-        int auctionDuration = 30 + random.nextInt(91);
-
-        String content = "[object_id: " + objectId +
-                "; description: \"a description for " + objectId + "\"" +
-                "; start_bid: \"" + startBid + "\"" +
-                "; auction_duration: \"" + auctionDuration + "\"]";
-
-        try (PrintWriter writer = new PrintWriter(new FileWriter(objectFile))) {
-            writer.println(content);
-            System.out.println("\n[" + username + "New file: " + fileName + " in file " + sharedDir.getName());
-            objectCounter++;
-            String requestMsg = "REQUEST_AUCTION|" + tokenId + "|" + objectId + "|a description for " + objectId + "|" + startBid + "|" + auctionDuration;
-            out.println(requestMsg);
+        try (Socket socket = new Socket(serverHost, serverPort);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+            out.println("REQUEST_AUCTION|" + tokenId + "|" + objectId + "|item by " + username + "|" + startBid + "|" + duration);
+            System.out.println("[" + username + "] Server: " + in.readLine());
         } catch (IOException e) {
-            System.out.println("Failed to create file: " + e.getMessage());
+            System.out.println("[" + username + "] Failed to queue item.");
         }
     }
 }
