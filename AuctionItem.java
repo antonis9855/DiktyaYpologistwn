@@ -1,5 +1,5 @@
 public class AuctionItem {
-    public String tokenId; 
+    public String tokenId;
     public String objectId;
     public String description;
     public int startBid;
