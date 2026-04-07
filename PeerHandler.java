@@ -16,261 +16,170 @@ public class PeerHandler implements Runnable {
         try {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
-
             String line;
             while ((line = in.readLine()) != null) {
-                System.out.println("[SERVER] Received: " + line);
-                
-                String[] pieces = line.split("\\|");
-                String command = pieces[0];
-                
-                switch (command){
-                    case "REGISTER":
-                        register (pieces);
-                        break;
-                    case "LOGIN":
-                        login (pieces);
-                        break;
-                    case "LOGOUT":
-                        logout (pieces);
-                        break;
-                    case "REQUEST_AUCTION":
-                        requestAuction(pieces);
-                        break;
-                    case "GET_CURRENT_AUCTION":
-                        getCurrentAuction(pieces);
-                        break;
-                    case "GET_AUCTION_DETAILS":
-                        getAuctionDetails(pieces);
-                        break;
-                    case "PLACE_BID":
-                        placeBid(pieces);
-                        break;
-                    case "CHECK_WINNER":
-                        checkWinner(pieces);
-                        break;
-                    case "TRANSACTION_COMPLETE":
-                        transactionComplete(pieces);
-                        break;
-                    default:
-                        out.println("Error command");
-                }           
+                System.out.println("[SERVER] << " + line);
+                String[] parts = line.split("\\|");
+                switch (parts[0]) {
+                    case "REGISTER":            register(parts);            break;
+                    case "LOGIN":               login(parts);               break;
+                    case "LOGOUT":              logout(parts);              break;
+                    case "REQUEST_AUCTION":     requestAuction(parts);      break;
+                    case "GET_CURRENT_AUCTION": getCurrentAuction(parts);   break;
+                    case "GET_AUCTION_DETAILS": getAuctionDetails(parts);   break;
+                    case "PLACE_BID":           placeBid(parts);            break;
+                    case "CHECK_WINNER":        checkWinner(parts);         break;
+                    case "TRANSACTION_COMPLETE": transactionComplete(parts); break;
+                    default: out.println("ERROR|Unknown command");
+                }
             }
         } catch (IOException e) {
-            System.out.println("[SERVER] Peer disconnected: " + e.getMessage());
+            System.out.println("[SERVER] Peer disconnected.");
         } finally {
             try { socket.close(); } catch (IOException e) {}
         }
     }
 
-   private void register(String[] pieces) {
-        if (pieces.length != 3) {
-            out.println("ERROR|Format is REGISTER|username|password");
-            return;
-        }
-        
-        String username = pieces[1];
-        String password = pieces[2];
-
-       if (!AuctionServer.accounts.containsKey(username)) {
+    private void register(String[] parts) {
+        if (parts.length != 3) { out.println("ERROR|Bad format"); return; }
+        String username = parts[1];
+        String password = parts[2];
+        if (!AuctionServer.accounts.containsKey(username)) {
             AuctionServer.accounts.put(username, new User(username, password));
             out.println("SUCCESS|Account created for " + username);
+            System.out.println("[SERVER] Registered: " + username);
         } else {
-           out.println("ERROR|Username already exists. Please choose a different username.");
+            out.println("ERROR|Username taken");
         }
     }
 
-   private void login(String[] pieces) {
-        if (pieces.length != 4) {
-            out.println("ERROR|Format is LOGIN|username|password|port");
-            return;
-        }
-        String username = pieces[1];
-        String password = pieces[2];
-        int peerPort;
+    private void login(String[] parts) {
+        if (parts.length != 4) { out.println("ERROR|Bad format"); return; }
+        String username = parts[1];
+        String password = parts[2];
+        int port;
         try {
-            peerPort = Integer.parseInt(pieces[3]);
+            port = Integer.parseInt(parts[3]);
         } catch (NumberFormatException e) {
-            out.println("ERROR|Invalid port number.");
+            out.println("ERROR|Bad port");
             return;
         }
         User user = AuctionServer.accounts.get(username);
-      
         if (user != null && user.password.equals(password)) {
-            Random random = new Random();
-            int randomNum = random.nextInt(1000000000);
-            String tokenId = String.valueOf(randomNum);
+            String token = String.valueOf(new Random().nextInt(1000000000));
             String ipAddress = socket.getInetAddress().getHostAddress();
-            AuctionServer.activeSessions.put(tokenId, new Session(tokenId, username, ipAddress, peerPort));
-            out.println("SUCCESS|" + tokenId);
+            AuctionServer.activeSessions.put(token, new Session(token, username, ipAddress, port));
+            out.println("SUCCESS|" + token);
+            System.out.println("[SERVER] Login: " + username + " token=" + token);
         } else {
-            out.println("ERROR|Invalid username or password.");
+            out.println("ERROR|Wrong credentials");
         }
     }
 
-   private void logout(String[] pieces) {
-       if (pieces.length != 2) {
-           out.println("ERROR|Format is LOGOUT|tokenId");
-           return;
-        }
-        String tokenId = pieces[1];
-
-       if (AuctionServer.activeSessions.containsKey(tokenId)) {
-           AuctionServer.activeSessions.remove(tokenId);
-           out.println("SUCCESS|Logged out successfully.");
+    private void logout(String[] parts) {
+        if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
+        String token = parts[1];
+        if (AuctionServer.activeSessions.remove(token) != null) {
+            out.println("SUCCESS|Logged out");
+            System.out.println("[SERVER] Logout: token=" + token);
         } else {
-           out.println("ERROR|Invalid Token ID.");
+            out.println("ERROR|Invalid token");
         }
     }
-    private void requestAuction(String[] pieces) {
-        if (pieces.length != 6) {
-            out.println("ERROR|Format is REQUEST_AUCTION|tokenId|objectId|description|startBid|duration");
-            return;
-        }
-        String tokenId = pieces[1];
-        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
-            out.println("ERROR|Invalid or expired Token ID.");
-            return;
-        }
 
-        String objectId = pieces[2];
-        String description = pieces[3];
-        int startBid = Integer.parseInt(pieces[4]);
-        int duration = Integer.parseInt(pieces[5]);
-
-        AuctionItem newItem = new AuctionItem(tokenId, objectId, description, startBid, duration);
-        AuctionServer.auctionQueue.add(newItem);
-
-        out.println("SUCCESS|Item " + objectId + " added to the auction queue!");
-        System.out.println("[SERVER] Queue size is now: " + AuctionServer.auctionQueue.size());
+    private void requestAuction(String[] parts) {
+        if (parts.length != 6) { out.println("ERROR|Bad format"); return; }
+        String token = parts[1];
+        if (!AuctionServer.activeSessions.containsKey(token)) { out.println("ERROR|Invalid token"); return; }
+        String objectId = parts[2];
+        String description = parts[3];
+        int startBid = Integer.parseInt(parts[4]);
+        int duration = Integer.parseInt(parts[5]);
+        AuctionServer.auctionQueue.add(new AuctionItem(token, objectId, description, startBid, duration));
+        out.println("SUCCESS|" + objectId + " queued");
+        System.out.println("[SERVER] Queued: " + objectId + " queue size=" + AuctionServer.auctionQueue.size());
     }
-private void getCurrentAuction(String[] pieces) {
-        if (pieces.length != 2) {
-            out.println("ERROR|Format is GET_CURRENT_AUCTION|tokenId");
-            return;
-        }
-        String tokenId = pieces[1];
-        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
-            out.println("ERROR|Invalid Token ID");
-            return;
-        }
+
+    private void getCurrentAuction(String[] parts) {
+        if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
+        if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
         ActiveAuction auction = AuctionServer.currentAuction;
         if (auction != null && !auction.isFinished) {
-            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.currentBid);
-        } else {
-            out.println("ERROR|No active auction right now");
-        }
-    }
-
-    private void getAuctionDetails(String[] pieces) {
-        
-        if (pieces.length != 2) {
-            out.println("ERROR|Format is GET_AUCTION_DETAILS|tokenId");
-            return;
-        }
-        String tokenId = pieces[1];
-        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
-            out.println("ERROR|Invalid Token ID");
-            return;
-        }
-        ActiveAuction auction = AuctionServer.currentAuction;
-        if (auction != null && !auction.isFinished) {
-            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.item.startBid + "|" + auction.currentBid);
+            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.currentBid);
         } else {
             out.println("ERROR|No active auction");
         }
     }
 
-    private void placeBid(String[] pieces) {
-        if (pieces.length != 3) {
-            out.println("ERROR|Format is PLACE_BID|tokenId|newBid");
-            return;
+    private void getAuctionDetails(String[] parts) {
+        if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
+        if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
+        ActiveAuction auction = AuctionServer.currentAuction;
+        if (auction != null && !auction.isFinished) {
+            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.currentBid + "|" + auction.getTimeRemainingSeconds());
+        } else {
+            out.println("ERROR|No active auction");
         }
-        String tokenId = pieces[1];
-        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
-            out.println("ERROR|Invalid Token ID");
-            return;
-        }
+    }
+
+    private void placeBid(String[] parts) {
+        if (parts.length != 3) { out.println("ERROR|Bad format"); return; }
+        String token = parts[1];
+        if (!AuctionServer.activeSessions.containsKey(token)) { out.println("ERROR|Invalid token"); return; }
         int newBid;
         try {
-            newBid = Integer.parseInt(pieces[2]);
+            newBid = Integer.parseInt(parts[2]);
         } catch (NumberFormatException e) {
-            out.println("ERROR|Invalid bid amount");
+            out.println("ERROR|Bad bid");
             return;
         }
         ActiveAuction auction = AuctionServer.currentAuction;
-        if (auction != null && !auction.isFinished) {
-           synchronized (auction) {
-                if (auction.item.tokenId.equals(tokenId)) {
-                    out.println("ERROR|You cannot bid on your own item!");
-                    return;
-                }
-                if (newBid > auction.currentBid) {
-                    auction.currentBid = newBid;
-                    auction.highestBidderTokenId = tokenId;
-                    auction.highestBidderUsername = AuctionServer.activeSessions.get(tokenId).username;
-                    out.println("SUCCESS|Bid accepted");
-                    System.out.println("[SERVER] New offer for " + auction.item.objectId + " from:  " + auction.highestBidderUsername + " with bid: " + newBid);
-                } else {
-                    out.println("ERROR|Bid too low. Current bid is " + auction.currentBid);
-                }
-            }
-        } else {
-            out.println("ERROR|No active auction to bid on");
-        }
-    }
-   private void checkWinner(String[] pieces) {
-        // Μορφή: CHECK_WINNER|tokenId
-        if (pieces.length != 2) return;
-        String tokenId = pieces[1];
-
-        ActiveAuction wonAuction = null;
-
-        synchronized(AuctionServer.completedAuctions) {
-            for (ActiveAuction a : AuctionServer.completedAuctions) {
-                if (tokenId.equals(a.highestBidderTokenId)) {
-                    wonAuction = a;
-                    break;
-                }
-            }
-            if (wonAuction != null) {
-                AuctionServer.completedAuctions.remove(wonAuction);
-            }
-        }
-
-        if (wonAuction != null) {
-            String sellerToken = wonAuction.item.tokenId;
-            Session sellerSession = AuctionServer.activeSessions.get(sellerToken);
-
-            if (sellerSession != null) {
-               out.println("SUCCESS|" + wonAuction.item.objectId + "|" + sellerSession.ipAddress + "|" + sellerSession.port);
+        if (auction == null || auction.isFinished) { out.println("ERROR|No active auction"); return; }
+        String broadcastMsg = null;
+        synchronized (auction) {
+            if (auction.item.tokenId.equals(token)) { out.println("ERROR|Cannot bid on own item"); return; }
+            if (newBid > auction.currentBid) {
+                auction.currentBid = newBid;
+                auction.highestBidderTokenId = token;
+                auction.highestBidderUsername = AuctionServer.activeSessions.get(token).username;
+                out.println("SUCCESS|Bid accepted");
+                System.out.println("[SERVER] New bid on " + auction.item.objectId + ": " + newBid + " by " + auction.highestBidderUsername);
+                broadcastMsg = "BID_UPDATE|" + auction.item.objectId + "|" + newBid + "|" + auction.highestBidderUsername;
             } else {
-                out.println("ERROR|Saler is offline.");
+                out.println("ERROR|Bid too low, current=" + auction.currentBid);
+            }
+        }
+        if (broadcastMsg != null) AuctionServer.broadcastToAllPeers(broadcastMsg);
+    }
+
+    private void checkWinner(String[] parts) {
+        if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
+        String token = parts[1];
+        ActiveAuction wonAuction = null;
+        synchronized (AuctionServer.completedAuctions) {
+            for (ActiveAuction auction : AuctionServer.completedAuctions) {
+                if (token.equals(auction.highestBidderTokenId)) { wonAuction = auction; break; }
+            }
+            if (wonAuction != null) AuctionServer.completedAuctions.remove(wonAuction);
+        }
+        if (wonAuction != null) {
+            Session sellerSession = AuctionServer.activeSessions.get(wonAuction.item.tokenId);
+            if (sellerSession != null) {
+                out.println("SUCCESS|" + wonAuction.item.objectId + "|" + sellerSession.ipAddress + "|" + sellerSession.port);
+            } else {
+                out.println("ERROR|Seller offline");
             }
         } else {
-            out.println("ERROR|You haven't won any auction.");
+            out.println("ERROR|No win");
         }
     }
-    private void transactionComplete(String[] pieces) {
-        if (pieces.length != 3) {
-            out.println("ERROR|Format is TRANSACTION_COMPLETE|tokenId|objectId");
-            return;
-        }
-        String tokenId = pieces[1];
-        String objectId = pieces[2];
 
-        if (!AuctionServer.activeSessions.containsKey(tokenId)) {
-            out.println("ERROR|Invalid Token ID");
-            return;
-        }
-        String buyerUsername = AuctionServer.activeSessions.get(tokenId).username;
-
-        System.out.println("\n===============================================");
-        System.out.println("[Confirm P2P transaction]");
-        System.out.println("Byuer : " + buyerUsername + "received file: ");
-        System.out.println(objectId + " from saler!");
-        System.out.println("===============================================\n");
-
-        out.println("SUCCESS|Transaction successfully recorded");
+    private void transactionComplete(String[] parts) {
+        if (parts.length != 3) { out.println("ERROR|Bad format"); return; }
+        if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
+        String buyerUsername = AuctionServer.activeSessions.get(parts[1]).username;
+        String objectId = parts[2];
+        System.out.println("[SERVER] Transaction: " + buyerUsername + " got " + objectId);
+        out.println("SUCCESS|Transaction recorded");
     }
 }
