@@ -36,7 +36,7 @@ public class Items implements Runnable {
     }
 
     private void generateItem() {
-        String objectId = "Object_" + String.format("%02d", objectCounter);
+        String objectId = username + "Object_" + String.format("%02d", objectCounter);
         int startBid = 10 + random.nextInt(91);
         int duration = simMode ? 10 + random.nextInt(11) : 30 + random.nextInt(91);
         String content = "[object_id: " + objectId + "; description: \"item by " + username + "\"; start_bid: \"" + startBid + "\"; auction_duration: \"" + duration + "\"]";
