@@ -34,7 +34,7 @@ public class Peer {
 
         outer:
         while (true) {
-            System.out.println("\n1.Register 2.Login 3.Logout 4.Exit");
+            System.out.println("\n1.Register \n2.Login \n3.Logout \n4.Exit\n");
             System.out.print("> ");
             String choice = scanner.nextLine();
             String message = "";
