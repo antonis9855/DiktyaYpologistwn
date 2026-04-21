@@ -61,7 +61,10 @@ public class Peer {
                     message = "LOGOUT|" + myTokenId;
                     break;
                 case "4":
-                    break outer;
+                    if (myTokenId != null) {
+                        out.println("LOGOUT|" + myTokenId);
+                        stopThreads();
+                    }
                 default:
                     continue;
             }
