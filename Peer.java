@@ -20,6 +20,9 @@ public class Peer {
         Thread listener = new Thread(new PeerListener(myServerSocket));
         listener.setDaemon(true);
         listener.start();
+        Thread udpListener = new Thread(new UdpPeerListener(myPort));
+        udpListener.setDaemon(true);
+        udpListener.start();
 
         if (args.length >= 2) {
             boolean simMode = args.length >= 3 && args[2].equals("sim");

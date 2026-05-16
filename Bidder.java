@@ -33,9 +33,9 @@ public class Bidder implements Runnable {
                         String wonObjectId = winParts[1];
                         String sellerIp = winParts[2];
                         int sellerPort = Integer.parseInt(winParts[3]);
-                        System.out.println("[" + username + "] Won: " + wonObjectId + "! Connecting to seller...");
-                        downloadFile(sellerIp, sellerPort, wonObjectId);
-                        out.println("TRANSACTION_COMPLETE|" + tokenId + "|" + wonObjectId);
+                        System.out.println("[" + username + "] Won: " + wonObjectId + "! Starting UDP Go-Back-N...");
+                        boolean ok = GoBackNReceiver.receiveFile(sellerIp, sellerPort, wonObjectId, username);
+                        if (ok) out.println("TRANSACTION_COMPLETE|" + tokenId + "|" + wonObjectId);
                         in.readLine();
                     }
 
@@ -59,26 +59,6 @@ public class Bidder implements Runnable {
             }
         } catch (InterruptedException e) {
             System.out.println("[" + username + "] Bidder stopped.");
-        }
-    }
-
-    private void downloadFile(String sellerIp, int sellerPort, String objectId) {
-        File buyerDir = new File("shared_directory_" + username);
-        buyerDir.mkdir();
-        File outputFile = new File(buyerDir, objectId + ".txt");
-        try (Socket socket = new Socket(sellerIp, sellerPort);
-             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             FileWriter fileWriter = new FileWriter(outputFile)) {
-            writer.println("DOWNLOAD|" + objectId);
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.equals("EOF")) break;
-                fileWriter.write(line + "\n");
-            }
-            System.out.println("[" + username + "] Downloaded " + objectId + " to shared_directory.");
-        } catch (IOException e) {
-            System.out.println("[" + username + "] P2P download failed: " + e.getMessage());
         }
     }
 }
