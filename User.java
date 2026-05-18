@@ -3,6 +3,7 @@ public class User {
     public String password;
     public int num_auctions_seller = 0;
     public int num_auctions_bidder = 0;
+    public double reputation_score = 1.0;
 
     public User(String username, String password) {
         this.username = username;

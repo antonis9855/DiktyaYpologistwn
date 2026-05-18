@@ -1,3 +1,5 @@
+import java.util.*;
+
 public class ActiveAuction {
     public AuctionItem item;
     public int currentBid;
@@ -5,6 +7,7 @@ public class ActiveAuction {
     public String highestBidderTokenId;
     public volatile boolean isFinished;
     public long endTime;
+    public List<String> bidHistory = Collections.synchronizedList(new ArrayList<>());
 
     public ActiveAuction(AuctionItem item) {
         this.item = item;
