@@ -30,6 +30,7 @@ public class PeerHandler implements Runnable {
                     case "PLACE_BID":           placeBid(parts);            break;
                     case "CHECK_WINNER":        checkWinner(parts);         break;
                     case "TRANSACTION_COMPLETE": transactionComplete(parts); break;
+                    case "TRANSACTION_FAILED":  transactionFailed(parts);   break;
                     default: out.println("ERROR|Unknown command");
                 }
             }
@@ -70,7 +71,7 @@ public class PeerHandler implements Runnable {
             String ipAddress = socket.getInetAddress().getHostAddress();
             AuctionServer.activeSessions.put(token, new Session(token, username, ipAddress, port));
             out.println("SUCCESS|" + token);
-            System.out.println("[SERVER] Login: " + username + " token=" + token);
+            System.out.println("[SERVER] Login: " + username + " token=" + token + " reputation=" + String.format("%.2f", user.reputation_score));
         } else {
             out.println("ERROR|Wrong credentials");
         }
@@ -116,7 +117,7 @@ public class PeerHandler implements Runnable {
         if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
         ActiveAuction auction = AuctionServer.currentAuction;
         if (auction != null && !auction.isFinished) {
-            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.currentBid + "|" + auction.getTimeRemainingSeconds());
+            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.currentBid + "|" + auction.getTimeRemainingSeconds() + "|" + auction.item.auctionDuration);
         } else {
             out.println("ERROR|No active auction");
         }
@@ -142,6 +143,7 @@ public class PeerHandler implements Runnable {
                 auction.currentBid = newBid;
                 auction.highestBidderTokenId = token;
                 auction.highestBidderUsername = AuctionServer.activeSessions.get(token).username;
+                auction.bidHistory.add(token + "|" + auction.highestBidderUsername + "|" + newBid);
                 out.println("SUCCESS|Bid accepted");
                 System.out.println("[SERVER] New bid on " + auction.item.objectId + ": " + newBid + " by " + auction.highestBidderUsername);
                 broadcastMsg = "BID_UPDATE|" + auction.item.objectId + "|" + newBid + "|" + auction.highestBidderUsername;
@@ -155,17 +157,11 @@ public class PeerHandler implements Runnable {
     private void checkWinner(String[] parts) {
         if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
         String token = parts[1];
-        ActiveAuction wonAuction = null;
-        synchronized (AuctionServer.completedAuctions) {
-            for (ActiveAuction auction : AuctionServer.completedAuctions) {
-                if (token.equals(auction.highestBidderTokenId)) { wonAuction = auction; break; }
-            }
-            if (wonAuction != null) AuctionServer.completedAuctions.remove(wonAuction);
-        }
+        ActiveAuction wonAuction = AuctionServer.pendingWinners.get(token);
         if (wonAuction != null) {
             Session sellerSession = AuctionServer.activeSessions.get(wonAuction.item.tokenId);
             if (sellerSession != null) {
-                out.println("SUCCESS|" + wonAuction.item.objectId + "|" + sellerSession.ipAddress + "|" + sellerSession.port);
+                out.println("SUCCESS|" + wonAuction.item.objectId + "|" + sellerSession.ipAddress + "|" + sellerSession.port + "|" + wonAuction.currentBid);
             } else {
                 out.println("ERROR|Seller offline");
             }
@@ -179,7 +175,62 @@ public class PeerHandler implements Runnable {
         if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
         String buyerUsername = AuctionServer.activeSessions.get(parts[1]).username;
         String objectId = parts[2];
-        System.out.println("[SERVER] Transaction: " + buyerUsername + " got " + objectId);
+        ActiveAuction auction = AuctionServer.pendingWinners.remove(parts[1]);
+        if (auction != null) {
+            User buyer = AuctionServer.accounts.get(buyerUsername);
+            if (buyer != null) buyer.num_auctions_bidder++;
+            Session sellerSession = AuctionServer.activeSessions.get(auction.item.tokenId);
+            if (sellerSession != null) {
+                User seller = AuctionServer.accounts.get(sellerSession.username);
+                if (seller != null) seller.num_auctions_seller++;
+            }
+            AuctionServer.updateReputation(buyerUsername, 1);
+        }
+        System.out.println("[SERVER] Transaction success: " + buyerUsername + " got " + objectId);
         out.println("SUCCESS|Transaction recorded");
+    }
+
+    private void transactionFailed(String[] parts) {
+        if (parts.length != 3) { out.println("ERROR|Bad format"); return; }
+        String token = parts[1];
+        if (!AuctionServer.activeSessions.containsKey(token)) { out.println("ERROR|Invalid token"); return; }
+        ActiveAuction auction = AuctionServer.pendingWinners.remove(token);
+        if (auction == null) { out.println("ERROR|No pending transaction"); return; }
+        String username = AuctionServer.activeSessions.get(token).username;
+        AuctionServer.updateReputation(username, 0);
+        synchronized (auction) {
+            auction.bidHistory.removeIf(b -> b.startsWith(token + "|"));
+        }
+        System.out.println("[SERVER] Transaction failed: " + username + " cancelled " + parts[2]);
+        offerNextBidder(auction);
+        out.println("SUCCESS|Cancellation recorded");
+    }
+
+    private void offerNextBidder(ActiveAuction auction) {
+        String bestToken = null;
+        String bestUsername = null;
+        int bestBid = -1;
+        synchronized (auction) {
+            for (String bidLine : auction.bidHistory) {
+                String[] p = bidLine.split("\\|");
+                if (p.length != 3) continue;
+                if (!AuctionServer.activeSessions.containsKey(p[0])) continue;
+                int bid = Integer.parseInt(p[2]);
+                if (bid > bestBid) {
+                    bestToken = p[0];
+                    bestUsername = p[1];
+                    bestBid = bid;
+                }
+            }
+            if (bestToken == null) {
+                System.out.println("[SERVER] No connected bidder left for " + auction.item.objectId);
+                return;
+            }
+            auction.highestBidderTokenId = bestToken;
+            auction.highestBidderUsername = bestUsername;
+            auction.currentBid = bestBid;
+            AuctionServer.pendingWinners.put(bestToken, auction);
+            System.out.println("[SERVER] Winner offered: " + auction.item.objectId + " to " + bestUsername + " bid=" + bestBid);
+        }
     }
 }

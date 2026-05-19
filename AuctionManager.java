@@ -4,7 +4,7 @@ public class AuctionManager implements Runnable {
         System.out.println("[SERVER] AuctionManager started.");
         while (true) {
             try {
-                AuctionItem item = AuctionServer.auctionQueue.poll();
+                AuctionItem item = AuctionServer.pollNextItem();
 
                 if (item == null) {
                     Thread.sleep(2000);
@@ -39,16 +39,8 @@ public class AuctionManager implements Runnable {
                     ActiveAuction auction = AuctionServer.currentAuction;
 
                     if (auction.highestBidderUsername != null) {
-                        System.out.println("[SERVER] " + item.objectId + " sold to " + auction.highestBidderUsername + " for " + auction.currentBid);
-                        AuctionServer.completedAuctions.add(auction);
-
-                        Session sellerSession = AuctionServer.activeSessions.get(item.tokenId);
-                        if (sellerSession != null) {
-                            User sellerUser = AuctionServer.accounts.get(sellerSession.username);
-                            if (sellerUser != null) sellerUser.num_auctions_seller++;
-                        }
-                        User buyerUser = AuctionServer.accounts.get(auction.highestBidderUsername);
-                        if (buyerUser != null) buyerUser.num_auctions_bidder++;
+                        AuctionServer.pendingWinners.put(auction.highestBidderTokenId, auction);
+                        System.out.println("[SERVER] " + item.objectId + " offered to " + auction.highestBidderUsername + " for " + auction.currentBid);
                     } else {
                         System.out.println("[SERVER] " + item.objectId + " ended with no bids.");
                     }
