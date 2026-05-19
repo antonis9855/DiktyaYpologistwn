@@ -4,6 +4,7 @@ public class AuctionItem {
     public String description;
     public int startBid;
     public int auctionDuration;
+    public long arrivalTime;
 
     public AuctionItem(String tokenId, String objectId, String description, int startBid, int auctionDuration) {
         this.tokenId = tokenId;
@@ -11,5 +12,6 @@ public class AuctionItem {
         this.description = description;
         this.startBid = startBid;
         this.auctionDuration = auctionDuration;
+        this.arrivalTime = System.currentTimeMillis();
     }
 }
