@@ -117,7 +117,7 @@ public class PeerHandler implements Runnable {
         if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
         ActiveAuction auction = parts.length == 3 ? AuctionServer.getAuction(parts[2]) : AuctionServer.getAnyAuction();
         if (auction != null && !auction.isFinished) {
-            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.currentBid + "|" + auction.getTimeRemainingSeconds() + "|" + auction.item.auctionDuration);
+            out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.item.tokenId + "|" + auction.currentBid + "|" + auction.getTimeRemainingSeconds() + "|" + auction.item.auctionDuration);
         } else {
             out.println("ERROR|No active auction");
         }

@@ -55,9 +55,9 @@ public class Bidder implements Runnable {
                         String details = in.readLine();
                         if (details == null || !details.startsWith("SUCCESS")) continue;
                         parts = details.split("\\|");
-                        int highestBid = Integer.parseInt(parts[3]);
-                        int timeLeft = Integer.parseInt(parts[4]);
-                        int duration = Integer.parseInt(parts[5]);
+                        int highestBid = Integer.parseInt(parts[4]);
+                        int timeLeft = Integer.parseInt(parts[5]);
+                        int duration = Integer.parseInt(parts[6]);
                         if (random.nextDouble() <= 0.60) {
                             double maxIncrease = timeLeft <= Math.max(1, duration / 10) ? 0.20 : 0.10;
                             int newBid = (int)(highestBid * (1.0 + random.nextDouble() * maxIncrease));
