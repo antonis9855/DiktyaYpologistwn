@@ -15,7 +15,7 @@ public class AuctionServer {
     static List<ActiveAuction> completedAuctions = Collections.synchronizedList(new ArrayList<>());
     static Map<String, Queue<ActiveAuction>> pendingWinners = new ConcurrentHashMap<>();
     static final double BETA = 0.25;
-    static final int MAX_AUCTIONS = 100;
+    static final int MAX_AUCTIONS = 2;
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(PORT);
