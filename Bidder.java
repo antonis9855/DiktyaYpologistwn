@@ -46,11 +46,15 @@ public class Bidder implements Runnable {
                         in.readLine();
                     }
 
-                    out.println("GET_AUCTION_DETAILS|" + tokenId);
+                    out.println("GET_CURRENT_AUCTION|" + tokenId);
                     String response = in.readLine();
                     if (response != null && response.startsWith("SUCCESS")) {
                         String[] parts = response.split("\\|");
                         String objectId = parts[1];
+                        out.println("GET_AUCTION_DETAILS|" + tokenId + "|" + objectId);
+                        String details = in.readLine();
+                        if (details == null || !details.startsWith("SUCCESS")) continue;
+                        parts = details.split("\\|");
                         int highestBid = Integer.parseInt(parts[3]);
                         int timeLeft = Integer.parseInt(parts[4]);
                         int duration = Integer.parseInt(parts[5]);
@@ -59,7 +63,7 @@ public class Bidder implements Runnable {
                             int newBid = (int)(highestBid * (1.0 + random.nextDouble() * maxIncrease));
                             if (newBid <= highestBid) newBid = highestBid + 1;
                             System.out.println("[" + username + "] Bidding on " + objectId + ": " + newBid);
-                            out.println("PLACE_BID|" + tokenId + "|" + newBid);
+                            out.println("PLACE_BID|" + tokenId + "|" + objectId + "|" + newBid);
                             System.out.println("[" + username + "] " + in.readLine());
                         } else {
                             System.out.println("[" + username + "] Not interested in " + objectId);

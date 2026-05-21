@@ -104,7 +104,7 @@ public class PeerHandler implements Runnable {
     private void getCurrentAuction(String[] parts) {
         if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
         if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
-        ActiveAuction auction = AuctionServer.currentAuction;
+        ActiveAuction auction = AuctionServer.getAnyAuction();
         if (auction != null && !auction.isFinished) {
             out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.currentBid);
         } else {
@@ -113,9 +113,9 @@ public class PeerHandler implements Runnable {
     }
 
     private void getAuctionDetails(String[] parts) {
-        if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
+        if (parts.length != 2 && parts.length != 3) { out.println("ERROR|Bad format"); return; }
         if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
-        ActiveAuction auction = AuctionServer.currentAuction;
+        ActiveAuction auction = parts.length == 3 ? AuctionServer.getAuction(parts[2]) : AuctionServer.getAnyAuction();
         if (auction != null && !auction.isFinished) {
             out.println("SUCCESS|" + auction.item.objectId + "|" + auction.item.description + "|" + auction.currentBid + "|" + auction.getTimeRemainingSeconds() + "|" + auction.item.auctionDuration);
         } else {
@@ -124,17 +124,18 @@ public class PeerHandler implements Runnable {
     }
 
     private void placeBid(String[] parts) {
-        if (parts.length != 3) { out.println("ERROR|Bad format"); return; }
+        if (parts.length != 3 && parts.length != 4) { out.println("ERROR|Bad format"); return; }
         String token = parts[1];
         if (!AuctionServer.activeSessions.containsKey(token)) { out.println("ERROR|Invalid token"); return; }
+        String objectId = parts.length == 4 ? parts[2] : "";
         int newBid;
         try {
-            newBid = Integer.parseInt(parts[2]);
+            newBid = Integer.parseInt(parts.length == 4 ? parts[3] : parts[2]);
         } catch (NumberFormatException e) {
             out.println("ERROR|Bad bid");
             return;
         }
-        ActiveAuction auction = AuctionServer.currentAuction;
+        ActiveAuction auction = parts.length == 4 ? AuctionServer.getAuction(objectId) : AuctionServer.getAnyAuction();
         if (auction == null || auction.isFinished) { out.println("ERROR|No active auction"); return; }
         String broadcastMsg = null;
         synchronized (auction) {
@@ -157,7 +158,7 @@ public class PeerHandler implements Runnable {
     private void checkWinner(String[] parts) {
         if (parts.length != 2) { out.println("ERROR|Bad format"); return; }
         String token = parts[1];
-        ActiveAuction wonAuction = AuctionServer.pendingWinners.get(token);
+        ActiveAuction wonAuction = AuctionServer.peekPendingWinner(token);
         if (wonAuction != null) {
             Session sellerSession = AuctionServer.activeSessions.get(wonAuction.item.tokenId);
             if (sellerSession != null) {
@@ -175,7 +176,7 @@ public class PeerHandler implements Runnable {
         if (!AuctionServer.activeSessions.containsKey(parts[1])) { out.println("ERROR|Invalid token"); return; }
         String buyerUsername = AuctionServer.activeSessions.get(parts[1]).username;
         String objectId = parts[2];
-        ActiveAuction auction = AuctionServer.pendingWinners.remove(parts[1]);
+        ActiveAuction auction = AuctionServer.removePendingWinner(parts[1], objectId);
         if (auction != null) {
             User buyer = AuctionServer.accounts.get(buyerUsername);
             if (buyer != null) buyer.num_auctions_bidder++;
@@ -194,7 +195,7 @@ public class PeerHandler implements Runnable {
         if (parts.length != 3) { out.println("ERROR|Bad format"); return; }
         String token = parts[1];
         if (!AuctionServer.activeSessions.containsKey(token)) { out.println("ERROR|Invalid token"); return; }
-        ActiveAuction auction = AuctionServer.pendingWinners.remove(token);
+        ActiveAuction auction = AuctionServer.removePendingWinner(token, parts[2]);
         if (auction == null) { out.println("ERROR|No pending transaction"); return; }
         String username = AuctionServer.activeSessions.get(token).username;
         AuctionServer.updateReputation(username, 0);
@@ -229,7 +230,7 @@ public class PeerHandler implements Runnable {
             auction.highestBidderTokenId = bestToken;
             auction.highestBidderUsername = bestUsername;
             auction.currentBid = bestBid;
-            AuctionServer.pendingWinners.put(bestToken, auction);
+            AuctionServer.addPendingWinner(bestToken, auction);
             System.out.println("[SERVER] Winner offered: " + auction.item.objectId + " to " + bestUsername + " bid=" + bestBid);
         }
     }

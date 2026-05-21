@@ -11,9 +11,11 @@ public class AuctionServer {
     static Map<String, Session> activeSessions = new ConcurrentHashMap<>();
     static Queue<AuctionItem> auctionQueue = new ConcurrentLinkedQueue<>();
     static volatile ActiveAuction currentAuction = null;
+    static Map<String, ActiveAuction> currentAuctions = new ConcurrentHashMap<>();
     static List<ActiveAuction> completedAuctions = Collections.synchronizedList(new ArrayList<>());
-    static Map<String, ActiveAuction> pendingWinners = new ConcurrentHashMap<>();
+    static Map<String, Queue<ActiveAuction>> pendingWinners = new ConcurrentHashMap<>();
     static final double BETA = 0.25;
+    static final int MAX_AUCTIONS = 100;
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(PORT);
@@ -62,5 +64,43 @@ public class AuctionServer {
         User user = accounts.get(session.username);
         if (user == null) return 0.0;
         return user.reputation_score;
+    }
+
+    static ActiveAuction getAnyAuction() {
+        List<ActiveAuction> active = new ArrayList<>();
+        for (ActiveAuction auction : currentAuctions.values()) {
+            if (!auction.isFinished) active.add(auction);
+        }
+        if (active.isEmpty()) return null;
+        return active.get(new Random().nextInt(active.size()));
+    }
+
+    static ActiveAuction getAuction(String objectId) {
+        ActiveAuction auction = currentAuctions.get(objectId);
+        if (auction != null && !auction.isFinished) return auction;
+        return null;
+    }
+
+    static void addPendingWinner(String token, ActiveAuction auction) {
+        pendingWinners.computeIfAbsent(token, k -> new ConcurrentLinkedQueue<>()).add(auction);
+    }
+
+    static ActiveAuction peekPendingWinner(String token) {
+        Queue<ActiveAuction> q = pendingWinners.get(token);
+        if (q == null) return null;
+        return q.peek();
+    }
+
+    static ActiveAuction removePendingWinner(String token, String objectId) {
+        Queue<ActiveAuction> q = pendingWinners.get(token);
+        if (q == null) return null;
+        for (ActiveAuction auction : q) {
+            if (auction.item.objectId.equals(objectId)) {
+                q.remove(auction);
+                if (q.isEmpty()) pendingWinners.remove(token);
+                return auction;
+            }
+        }
+        return null;
     }
 }

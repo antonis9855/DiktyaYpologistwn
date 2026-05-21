@@ -42,7 +42,10 @@ public class GoBackNReceiver {
                 } else {
                     System.out.println("[" + username + "] GBN ACK lost");
                 }
-                if (total >= 0 && expected >= total) break;
+                if (total >= 0 && expected >= total) {
+                    send(socket, packet.getAddress(), packet.getPort(), "ACK|" + expected);
+                    break;
+                }
             }
             File dir = new File("shared_directory_" + username);
             dir.mkdir();
